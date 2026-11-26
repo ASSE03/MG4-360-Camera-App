@@ -63,11 +63,10 @@ android {
     sourceSets {
         // Local reference montage; keep private images out of release APKs.
         debug.assets.srcDir 'src/androidTest/assets/reference'
-        // The sim build reuses the debug-only sources and the debug manifest (no system uid).
+        // The sim build reuses the debug-only sources; its manifest (src/sim) is the debug one minus the extra launcher.
         sim {
             java.srcDir 'src/debug/java'
             res.srcDir 'src/debug/res'
-            manifest.srcFile 'src/debug/AndroidManifest.xml'
         }
     }
     androidResources {

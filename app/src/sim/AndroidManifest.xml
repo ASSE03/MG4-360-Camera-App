@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:remove="android:sharedUserId">
+
+    <!-- Same as the debug manifest, without the second launcher icon: the sim build opens only the camera app. -->
+    <application>
+        <activity android:name=".birdseye.BirdseyeDebugActivity"
+            android:exported="true" android:label="Birdseye (Debug)" />
+        <activity android:name=".birdseye.CurbsideDebugActivity"
+            android:exported="true" android:label="Curbside (Debug)" />
+        <activity
+            android:name=".dev.WheelRotationDebugActivity"
+            android:exported="true"
+            android:label="Rad-Drehung (Debug)" />
+        <service android:name=".signal.OemDataProbeDebugServices$NullService" android:exported="false" android:process=":oem_probe_fixture" />
+        <service android:name=".signal.OemDataProbeDebugServices$BinderService" android:exported="false" android:process=":oem_probe_fixture" />
+        <receiver android:name=".signal.OemDataProbeDebugServices$StartReceiver" android:enabled="true" android:exported="false" />
+    </application>
+</manifest>
