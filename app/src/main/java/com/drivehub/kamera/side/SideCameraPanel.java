@@ -115,7 +115,7 @@ public final class SideCameraPanel extends ViewGroup {
     private void createProjectionLoader(){
         advanced=new AdvancedWheelProjection(new AdvancedWheelProjection.Access(){
             public com.drivehub.kamera.birdseye.BirdseyeCalibration load()throws java.io.IOException{
-                return com.drivehub.kamera.birdseye.BirdseyeCalibration.load(java.nio.file.Paths.get(com.drivehub.kamera.birdseye.BirdseyeCalibration.VEHICLE_PATH));
+                return com.drivehub.kamera.birdseye.BirdseyeCalibration.loadVehicle();
             }
             public void session(int token){SideCameraNative.setAdvancedSession(token);}
             public boolean maps(int token,String key,float[][] maps){return SideCameraNative.setAdvancedMaps(token,key,

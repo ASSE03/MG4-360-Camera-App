@@ -248,7 +248,7 @@ public final class BirdseyeView extends FrameLayout {
     };
 
     public BirdseyeView(Context context, AttributeSet attrs) {
-        this(context,attrs,()->BirdseyeCalibration.load(Paths.get(BirdseyeCalibration.VEHICLE_PATH)));
+        this(context,attrs,BirdseyeCalibration::loadVehicle);
     }
 
     @android.annotation.SuppressLint("ClickableViewAccessibility")

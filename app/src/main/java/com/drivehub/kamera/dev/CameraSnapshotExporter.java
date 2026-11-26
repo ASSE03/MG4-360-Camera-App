@@ -81,6 +81,7 @@ public final class CameraSnapshotExporter {
         });
     }
     private static byte[] readCalibration() throws Exception {
+        if(com.drivehub.kamera.BuildConfig.SIMULATION)return com.drivehub.kamera.birdseye.SimulatedCameras.calibrationBytes();
         try(InputStream in=new FileInputStream(BirdseyeCalibration.VEHICLE_PATH)) {
             byte[] bytes=new byte[521];int count=0,n;
             while(count<bytes.length&&(n=in.read(bytes,count,bytes.length-count))>0)count+=n;

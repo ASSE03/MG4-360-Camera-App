@@ -108,6 +108,12 @@ Java_com_drivehub_kamera_CameraProbe_probeAll(JNIEnv* env, jclass /*clazz*/, jin
 
     std::ostringstream summary;
     summary << "Probe /dev/video0.." << (maxIndex - 1) << "\n";
+#ifdef MG4_CAMERA_SIM
+    // Emulator build: the four cameras are simulated (see sim_camera_source.h).
+    for (int i = 14; i <= 17 && i < maxIndex; i++)
+        summary << "/dev/video" << i << " SIMULATED UYVY 720x480\n";
+    return env->NewStringUTF(summary.str().c_str());
+#endif
 
     for (int i = 0; i < maxIndex; i++) {
         std::string path = "/dev/video" + std::to_string(i);

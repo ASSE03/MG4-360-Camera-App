@@ -47,6 +47,11 @@
 #include <sys/select.h>
 #include <unistd.h>
 
+#ifdef MG4_CAMERA_SIM
+#include "sim_camera_source.h"
+#include <sys/timerfd.h>
+#endif
+
 namespace camera_stream_manager
 {
     namespace
@@ -3091,6 +3096,9 @@ namespace camera_stream_manager
 
                 CameraOpening opening(gCameraAccess);
                 if (!opening) return false;
+#ifdef MG4_CAMERA_SIM
+                return openSimulatedLocked();
+#endif
                 const std::string devicePath = "/dev/video" + std::to_string(videoIndex_);
                 fd_ = open(devicePath.c_str(), O_RDWR | O_CLOEXEC);
                 if (fd_ < 0)
@@ -3241,6 +3249,69 @@ namespace camera_stream_manager
                      srcStrideBytes_, fourccToString(pixelFormat_).c_str());
                 return true;
             }
+
+#ifdef MG4_CAMERA_SIM
+            /**
+             * Emulator build: a timerfd paced at 25 fps stands in for the V4L2 node, and each
+             * tick renders the simulated scene into one anonymous buffer laid out exactly like
+             * the MG4's (720x480 UYVY, two fields stacked top-first, field NONE).
+             */
+            bool openSimulatedLocked()
+            {
+                sim_.reset(new mg4sim::Source(videoIndex_));
+                if (!sim_->valid())
+                {
+                    loge("sim: no simulated camera for /dev/video%d", videoIndex_);
+                    sim_.reset();
+                    errno = ENODEV;
+                    return false;
+                }
+                fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+                if (fd_ < 0)
+                {
+                    loge("sim: timerfd_create failed: %s", errnoStr().c_str());
+                    sim_.reset();
+                    return false;
+                }
+                gCameraAccess.opened();
+                if (gCameraAccess.blocked()) {
+                    cleanupCaptureLocked();
+                    return false;
+                }
+                itimerspec period{};
+                period.it_interval.tv_nsec = 1000000000L / mg4sim::FPS;
+                period.it_value.tv_nsec = period.it_interval.tv_nsec;
+                timerfd_settime(fd_, 0, &period, nullptr);
+
+                pixelFormat_ = V4L2_PIX_FMT_UYVY;
+                fieldOrder_ = V4L2_FIELD_NONE;
+                packedFormat_ = PackedFormat::UYVY;
+                srcWidth_ = mg4sim::W;
+                srcHeight_ = mg4sim::H;
+                srcStrideBytes_ = mg4sim::STRIDE;
+                cropWidth_ = srcWidth_;
+                cropHeight_ = srcHeight_;
+                fieldHeight_ = srcHeight_ / 2;
+                buffers_.clear();
+                buffers_.resize(1);
+                buffers_[0].length = mg4sim::FRAME_BYTES;
+                buffers_[0].start = mmap(nullptr, mg4sim::FRAME_BYTES, PROT_READ | PROT_WRITE,
+                                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+                if (buffers_[0].start == MAP_FAILED)
+                {
+                    loge("sim: buffer allocation failed");
+                    cleanupCaptureLocked();
+                    return false;
+                }
+                simSequence_ = 0;
+                char line[160];
+                snprintf(line, sizeof(line), "/dev/video%d: SIMULATED UYVY 720x480 field=0 stacked TB @ %d fps",
+                         videoIndex_, mg4sim::FPS);
+                logi("%s", line);
+                rememberFormat(videoIndex_, line);
+                return true;
+            }
+#endif
 
             bool ensureStartedLocked()
             {
@@ -3500,6 +3571,20 @@ namespace camera_stream_manager
                         v4l2_buffer buffer{};
                         buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
                         buffer.memory = V4L2_MEMORY_MMAP;
+#ifdef MG4_CAMERA_SIM
+                        if (sim_ != nullptr)
+                        {
+                            uint64_t ticks = 0;
+                            if (read(fd, &ticks, sizeof(ticks)) != sizeof(ticks)) continue;
+                            buffer.index = 0;
+                            buffer.sequence = simSequence_++;
+                            buffer.field = V4L2_FIELD_NONE;
+                            timespec mono{}; clock_gettime(CLOCK_MONOTONIC, &mono);
+                            sim_->render(static_cast<uint8_t *>(buffers_[0].start),
+                                         mono.tv_sec + mono.tv_nsec * 1e-9);
+                        }
+                        else
+#endif
                         if (ioctl(fd, VIDIOC_DQBUF, &buffer) < 0)
                         {
                             const int error = errno;
@@ -3608,6 +3693,9 @@ namespace camera_stream_manager
                             }
                         }
 
+#ifdef MG4_CAMERA_SIM
+                        if (sim_ == nullptr)
+#endif
                         ioctl(fd_, VIDIOC_QBUF, &buffer);
                         countTimings(videoIndex_, nowUs() - workStartUs, waitedUs,
                                      nowUs() - iterationStartUs);
@@ -3645,8 +3733,14 @@ namespace camera_stream_manager
                 {
                     logi("camera-close video=%d fd=%d consumers=%zu reason=%s", videoIndex_, fd_, consumers_.size(), reason);
                     v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+#ifdef MG4_CAMERA_SIM
+                    if (sim_ == nullptr)
+#endif
                     ioctl(fd_, VIDIOC_STREAMOFF, &type);
                 }
+#ifdef MG4_CAMERA_SIM
+                sim_.reset();
+#endif
 
                 for (MappedBuffer &buffer : buffers_)
                 {
@@ -3742,6 +3836,10 @@ namespace camera_stream_manager
             int fieldHeight_ = 0;
             uint32_t fieldOrder_ = V4L2_FIELD_NONE;
             std::vector<MappedBuffer> buffers_;
+#ifdef MG4_CAMERA_SIM
+            std::unique_ptr<mg4sim::Source> sim_;
+            uint32_t simSequence_ = 0;
+#endif
             std::shared_ptr<ParallelPreviewConsumer> mainPreview_;
             bool enhancedPreview_ = false;
             std::unordered_map<int, std::shared_ptr<FrameConsumer>> consumers_;

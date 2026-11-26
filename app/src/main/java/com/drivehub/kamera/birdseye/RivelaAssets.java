@@ -38,7 +38,7 @@ public final class RivelaAssets {
         CompletableFuture<WarmupResult> pending=new CompletableFuture<>();warmup=pending;
         try {
             IO.execute(()->{
-                WarmupResult result=warm(assets,()->BirdseyeCalibration.load(Paths.get(BirdseyeCalibration.VEHICLE_PATH)));
+                WarmupResult result=warm(assets,BirdseyeCalibration::loadVehicle);
                 pending.complete(result);
             });
         }catch(RuntimeException|OutOfMemoryError error) {

@@ -17,6 +17,8 @@ android {
         versionCode 75
         versionName "0.9.6"
         buildConfigField "boolean", "IS_BETA", "true"
+        // true only in the "sim" build type: simulated cameras + calibration for the emulator
+        buildConfigField "boolean", "SIMULATION", "false"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -37,6 +39,23 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+        // Emulator test build: ./gradlew assembleSim -> app/build/outputs/apk/sim/app-sim.apk
+        // The four cameras are replaced by a simulated parking scene (sim_camera_source.h) and
+        // the vehicle calibration by SimulatedCameras. Never install this on the car.
+        sim {
+            initWith debug
+            versionNameSuffix "-sim"
+            buildConfigField "boolean", "SIMULATION", "true"
+            externalNativeBuild {
+                cmake {
+                    cppFlags "-DMG4_CAMERA_SIM=1"
+                }
+            }
+            ndk {
+                // arm64 (Apple silicon / ARM emulators) and x86_64 (Intel/AMD emulators)
+                abiFilters "arm64-v8a", "x86_64"
+            }
+        }
     }
     buildFeatures {
         buildConfig true
@@ -44,6 +63,12 @@ android {
     sourceSets {
         // Local reference montage; keep private images out of release APKs.
         debug.assets.srcDir 'src/androidTest/assets/reference'
+        // The sim build reuses the debug-only sources and the debug manifest (no system uid).
+        sim {
+            java.srcDir 'src/debug/java'
+            res.srcDir 'src/debug/res'
+            manifest.srcFile 'src/debug/AndroidManifest.xml'
+        }
     }
     androidResources {
         // Local export sources stay available to tools but are never runtime APK assets.

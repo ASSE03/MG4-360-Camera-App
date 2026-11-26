@@ -419,7 +419,7 @@ public final class IpkCameraOverlay implements AutoCloseable {
             CameraProbe.setIpkRearviewMap(viewOwner,null);viewDetail="Wide";return;
         }
         try {
-            BirdseyeCalibration calibration=BirdseyeCalibration.load(java.nio.file.Paths.get(BirdseyeCalibration.VEHICLE_PATH));
+            BirdseyeCalibration calibration=BirdseyeCalibration.loadVehicle();
             if(normalMap==null||!normalMap.calibrationSha256.equals(calibration.sha256))normalMap=new RearviewLensMap(calibration);
             if(closed||token!=generation||!UiPrefs.isDigitalRearviewIpkNormal(prefs))return;
             if(!CameraProbe.setIpkRearviewMap(viewOwner,normalMap.coordinates()))throw new IllegalStateException("Native map rejected");

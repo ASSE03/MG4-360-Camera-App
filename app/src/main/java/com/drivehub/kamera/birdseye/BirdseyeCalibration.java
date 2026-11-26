@@ -45,6 +45,15 @@ public final class BirdseyeCalibration {
         centerY = cameras[2].center[1]/2 + cameras[3].center[1]/2;
     }
 
+    /**
+     * The calibration of this vehicle: {@link #VEHICLE_PATH} on the car, or the simulated rig
+     * of {@link SimulatedCameras} in the emulator ("sim") build.
+     */
+    public static BirdseyeCalibration loadVehicle() throws IOException {
+        if (com.drivehub.kamera.BuildConfig.SIMULATION) return parse(SimulatedCameras.calibrationBytes());
+        return load(java.nio.file.Paths.get(VEHICLE_PATH));
+    }
+
     public static BirdseyeCalibration load(Path path) throws IOException {
         // Bound the read even if a corrupted file is huge or changes during the read.
         try (InputStream in = Files.newInputStream(path)) {
